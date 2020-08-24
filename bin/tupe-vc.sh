@@ -10,7 +10,7 @@ function get() {
 			-i)	INPUT=$2; shift ;;
 			-o)	OUTPUT=$2; shift ;;
 			-[0-9])	VERSION=$1 ;;
-			-*)	echo "get: Unknown argument $i" 1>&2; exit 1 ;;
+			-*)	echo "get: Unknown argument $i" 1>&2; return 1 ;;
 			*)	case "$OUTPUT" in
 				"")	OUTPUT=$1 ;;
 				*)	INPUT=$1.H ;;
@@ -20,8 +20,8 @@ function get() {
 	done
 	OUTPUT=${OUTPUT?"Usage: get [-o outfile] [-i file.H] file"}
 	INPUT=${INPUT-$OUTPUT.H}
-	test -r $INPUT || { echo "get: no file $INPUT" 1>&2; exit 1; }
-	trap 'rm -f /tmp/get.[ab]$$; exit 1' 1 2 15
+	test -r $INPUT || { echo "get: no file $INPUT" 1>&2; return 1; }
+	trap 'rm -f /tmp/get.[ab]$$; return 1' 1 2 15
 	# split into current version and editing commands
 	sed <$INPUT -n '1,/^@@@/w /tmp/get.a'$$'
 	                /^@@@/,$w /tmp/get.b'$$
@@ -42,28 +42,28 @@ function put() {
 	
 	case $# in
 		1)	HIST=$1.H ;;
-		*)	echo 'Usage: put file' 1>&2; exit 1 ;;
+		*)	echo 'Usage: put file' 1>&2; return 1 ;;
 	esac
 	if test ! -r $1
 	then
 		echo "put: can't open $1" 1>&2
-		exit 1
+		return 1
 	fi
-	trap 'rm -f /tmp/put.[ab]$$; exit 1' 1 2 15
+	trap 'rm -f /tmp/put.[ab]$$; return 1' 1 2 15
 	echo -n 'Summary: '
 	read Summary
 	
 	if get -o /tmp/put.a$$ $1		# previous version
 	then			# merge pieces
 		cp $1 /tmp/put.b$$		# current version
-		echo "@@@ `getname` `date` $Summary" >>/tmp/put.b$$
+		echo "@@@ $USER `date` $Summary" >>/tmp/put.b$$
 		diff -e $1 /tmp/put.a$$ >>/tmp/put.b$$	# latest diffs
 		sed -n '/^@@@/,$p' <$HIST >>/tmp/put.b$$ # old diffs
 		overwrite $HIST	cat /tmp/put.b$$	# put it back
 	else			# make a new one
 		echo "put: creating $HIST"
 		cp $1 $HIST
-		echo "@@@ `getname` `date` $Summary" >>$HIST
+		echo "@@@ $USER `date` $Summary" >>$HIST
 	fi
 	rm -f /tmp/put.[ab]$$
 
@@ -76,12 +76,12 @@ function overwrite() {
 	PATH=/bin:/usr/bin
 	
 	case $# in
-	0|1)	echo 'Usage: overwrite file cmd [args]' 1>&2; exit 2
+	0|1)	echo 'Usage: overwrite file cmd [args]' 1>&2; return 2
 	esac
 	
 	file=$1; shift
 	new=/tmp/overwr1.$$; old=/tmp/overwr2.$$
-	trap 'rm -f $new $old; exit 1' 1 2 15	# clean up files
+	trap 'rm -f $new $old; return 1' 1 2 15	# clean up files
 	
 	if PATH=$opath "$@" >$new		# collect input
 	then
@@ -90,7 +90,7 @@ function overwrite() {
 		cp $new $file
 	else
 		echo "overwrite: $1 failed, $file unchanged" 1>&2
-		exit 1
+		return 1
 	fi
 	rm -f $new $old
 	
